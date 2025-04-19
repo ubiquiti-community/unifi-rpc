@@ -8,6 +8,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
+	"slices"
 	"sync"
 	"time"
 
@@ -20,12 +22,13 @@ type lazyClient struct {
 	pass      string
 	insecure  bool
 	subsystem string
+	jar       *cookiejar.Jar
 
 	once  sync.Once
 	inner *unifi.Client
 }
 
-func setHTTPClient(c *unifi.Client, insecure bool, subsystem string) {
+func setHTTPClient(c *unifi.Client, insecure bool, subsystem string, jar *cookiejar.Jar) {
 	httpClient := &http.Client{}
 	httpClient.Transport = &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
@@ -44,7 +47,6 @@ func setHTTPClient(c *unifi.Client, insecure bool, subsystem string) {
 		},
 	}
 
-	jar, _ := cookiejar.New(nil)
 	httpClient.Jar = jar
 
 	err := c.SetHTTPClient(httpClient)
@@ -56,9 +58,13 @@ func setHTTPClient(c *unifi.Client, insecure bool, subsystem string) {
 var initErr error
 
 func (c *lazyClient) init(ctx context.Context) error {
+	if c.jar == nil {
+		c.jar, _ = cookiejar.New(nil)
+	}
+
 	c.once.Do(func() {
 		c.inner = &unifi.Client{}
-		setHTTPClient(c.inner, c.insecure, c.subsystem)
+		setHTTPClient(c.inner, c.insecure, c.subsystem, c.jar)
 
 		initErr = c.inner.SetBaseURL(c.baseURL)
 		if initErr != nil {
@@ -71,7 +77,34 @@ func (c *lazyClient) init(ctx context.Context) error {
 		}
 		log.Printf("[TRACE] Unifi controller version: %q", c.inner.Version())
 	})
+
+	if c.isTokenExpired() {
+		log.Printf("[TRACE] Unifi controller token expired, reinitializing")
+		initErr = c.inner.Login(ctx, c.user, c.pass)
+	}
+
 	return initErr
+}
+
+func (c *lazyClient) isTokenExpired() bool {
+	if c.jar == nil {
+		c.jar, _ = cookiejar.New(nil)
+	}
+
+	unifiURL, err := url.Parse(c.baseURL)
+	if err != nil {
+		return true
+	}
+
+	cookies := c.jar.Cookies(unifiURL)
+
+	if len(cookies) == 0 {
+		return true
+	}
+
+	return slices.IndexFunc(cookies, func(c *http.Cookie) bool {
+		return c.Name == "TOKEN"
+	}) == -1
 }
 
 func (c *lazyClient) Version() string {
