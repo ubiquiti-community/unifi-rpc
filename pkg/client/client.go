@@ -13,12 +13,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/paultyng/go-unifi/unifi"
+	"github.com/ubiquiti-community/go-unifi/unifi"
 )
 
 type Client interface {
 	GetDeviceByMAC(ctx context.Context, mac string) (*unifi.Device, error)
 	UpdateDevice(ctx context.Context, d *unifi.Device) (*unifi.Device, error)
+	PowerCycle(ctx context.Context, mac string, port int) error
 }
 
 func NewClient(baseURL, user, pass string, insecure bool) Client {
@@ -54,6 +55,21 @@ func (c *lazyClient) UpdateDevice(ctx context.Context, d *unifi.Device) (*unifi.
 		return nil, err
 	}
 	return c.inner.UpdateDevice(ctx, "default", d)
+}
+
+func (c *lazyClient) PowerCycle(ctx context.Context, mac string, port int) error {
+	if err := c.init(ctx); err != nil {
+		return err
+	}
+	if _, err := c.inner.ExecuteCmd(ctx, "default", "devmgr", unifi.Cmd{
+		Command: "power-cycle",
+		MAC:     mac,
+		PortIDX: &port,
+	}); err != nil {
+		log.Printf("[ERROR] failed to power cycle: %s", err)
+		return err
+	}
+	return nil
 }
 
 func setHTTPClient(c *unifi.Client, insecure bool, jar *cookiejar.Jar) {

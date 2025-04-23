@@ -2,6 +2,7 @@ package models
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -18,4 +19,12 @@ func GetMachine(r *http.Request) Machine {
 		MacAddress: params["mac"],
 		PortIdx:    params["port"],
 	}
+}
+
+func (m *Machine) GetPort() int {
+	port, err := strconv.Atoi(m.PortIdx)
+	if err != nil {
+		return 0
+	}
+	return port
 }

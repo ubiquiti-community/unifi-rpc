@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/paultyng/go-unifi/unifi"
+	"github.com/ubiquiti-community/go-unifi/unifi"
 
 	"github.com/ubiquiti-community/unifi-rpc/pkg/client"
 	"github.com/ubiquiti-community/unifi-rpc/pkg/config"
@@ -183,6 +183,13 @@ func (b *rpcService) PxeBootHandler(w http.ResponseWriter, r *http.Request) {
 
 func (b *rpcService) RebootHandler(w http.ResponseWriter, r *http.Request) {
 	machine := models.GetMachine(r)
+
+	if err := b.client.PowerCycle(r.Context(), machine.MacAddress, machine.GetPort()); err != nil {
+		fmt.Fprintf(w, "error rebooting device for MAC Address %s, Port Index %s: %v", machine.MacAddress, machine.PortIdx, err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	fmt.Fprintf(w, "reboot request for MAC Address %s, Port Index %s", machine.MacAddress, machine.PortIdx)
 }
 
