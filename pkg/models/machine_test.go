@@ -67,7 +67,11 @@ func TestGetMachine(t *testing.T) {
 			machine := GetMachine(req)
 
 			if machine.MacAddress != tt.expected.MacAddress {
-				t.Errorf("Expected MacAddress %q, got %q", tt.expected.MacAddress, machine.MacAddress)
+				t.Errorf(
+					"Expected MacAddress %q, got %q",
+					tt.expected.MacAddress,
+					machine.MacAddress,
+				)
 			}
 			if machine.PortIdx != tt.expected.PortIdx {
 				t.Errorf("Expected PortIdx %q, got %q", tt.expected.PortIdx, machine.PortIdx)
@@ -188,8 +192,8 @@ func TestGetMachineWithGlobal(t *testing.T) {
 			},
 		},
 		{
-			name: "no headers, uses global",
-			headers: map[string]string{},
+			name:             "no headers, uses global",
+			headers:          map[string]string{},
 			globalMacAddress: "ff:ee:dd:cc:bb:aa",
 			expected: Machine{
 				MacAddress: "ff:ee:dd:cc:bb:aa",
@@ -213,7 +217,11 @@ func TestGetMachineWithGlobal(t *testing.T) {
 			machine := GetMachineWithGlobal(req, tt.globalMacAddress)
 
 			if machine.MacAddress != tt.expected.MacAddress {
-				t.Errorf("Expected MacAddress %q, got %q", tt.expected.MacAddress, machine.MacAddress)
+				t.Errorf(
+					"Expected MacAddress %q, got %q",
+					tt.expected.MacAddress,
+					machine.MacAddress,
+				)
 			}
 			if machine.PortIdx != tt.expected.PortIdx {
 				t.Errorf("Expected PortIdx %q, got %q", tt.expected.PortIdx, machine.PortIdx)

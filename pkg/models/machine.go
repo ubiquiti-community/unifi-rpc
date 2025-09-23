@@ -29,7 +29,7 @@ func GetMachineWithGlobal(r *http.Request, globalMacAddress string) Machine {
 	if macAddress == "" {
 		macAddress = globalMacAddress
 	}
-	
+
 	return Machine{
 		MacAddress: macAddress,
 		PortIdx:    r.Header.Get("X-Port"),

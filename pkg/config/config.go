@@ -68,23 +68,27 @@ func InitConfig() {
 // InitFlags sets up command line flags using cobra
 func InitFlags(cmd *cobra.Command) {
 	// Config file flag
-	cmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/unifi-rpc.yaml)")
-	
+	cmd.PersistentFlags().
+		StringVar(&cfgFile, "config", "", "config file (default is $HOME/unifi-rpc.yaml)")
+
 	// Server flags
 	cmd.PersistentFlags().Int("port", 5000, "port to listen on")
 	cmd.PersistentFlags().String("address", "0.0.0.0", "address to listen on")
-	
-	// Authentication flags  
+
+	// Authentication flags
 	cmd.PersistentFlags().String("username", "", "UniFi controller username")
 	cmd.PersistentFlags().String("password", "", "UniFi controller password")
-	cmd.PersistentFlags().String("api-key", "", "UniFi controller API key (preferred over username/password)")
-	
+	cmd.PersistentFlags().
+		String("api-key", "", "UniFi controller API key (preferred over username/password)")
+
 	// Connection flags
-	cmd.PersistentFlags().String("api-endpoint", "https://10.0.0.1", "UniFi controller API endpoint")
+	cmd.PersistentFlags().
+		String("api-endpoint", "https://10.0.0.1", "UniFi controller API endpoint")
 	cmd.PersistentFlags().Bool("insecure", true, "allow insecure TLS connections")
 
 	// Device flags
-	cmd.PersistentFlags().String("device-mac-address", "", "Global device MAC address for the network switch (can be overridden by X-MAC-Address header)")
+	cmd.PersistentFlags().
+		String("device-mac-address", "", "Global device MAC address for the network switch (can be overridden by X-MAC-Address header)")
 
 	// Bind flags to viper
 	viper.BindPFlag("port", cmd.PersistentFlags().Lookup("port"))
@@ -122,7 +126,9 @@ func GetConfig() *Config {
 func validateConfig(config *Config) error {
 	// Validate that we have some form of authentication
 	if config.APIKey == "" && (config.Username == "" || config.Password == "") {
-		return fmt.Errorf("authentication required: provide either API_KEY or both USERNAME and PASSWORD")
+		return fmt.Errorf(
+			"authentication required: provide either API_KEY or both USERNAME and PASSWORD",
+		)
 	}
 
 	// Validate API endpoint (check for empty string explicitly set, not just default)

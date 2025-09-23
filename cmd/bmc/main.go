@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-
 	"github.com/ubiquiti-community/unifi-rpc/pkg/api"
 	"github.com/ubiquiti-community/unifi-rpc/pkg/config"
 )
@@ -57,7 +56,7 @@ Example usage:
 		mux := http.NewServeMux()
 
 		// BMC RPC endpoint (used by bmclib)
-		mux.HandleFunc("POST /rpc", svc.RpcHandler)
+		mux.HandleFunc("POST /", svc.RpcHandler)
 
 		// Sidero Omni Metal API compatible endpoints
 		mux.HandleFunc("GET /status", svc.StatusHandler)
@@ -69,7 +68,10 @@ Example usage:
 		fmt.Printf("Server is running on http://%s:%d\n", cfg.Address, cfg.Port)
 		fmt.Printf("Machine identification via headers: X-MAC-Address, X-Port\n")
 		if cfg.DeviceMacAddress != "" {
-			fmt.Printf("Global device MAC address: %s (X-MAC-Address header will override)\n", cfg.DeviceMacAddress)
+			fmt.Printf(
+				"Global device MAC address: %s (X-MAC-Address header will override)\n",
+				cfg.DeviceMacAddress,
+			)
 		}
 		if cfg.APIKey != "" {
 			fmt.Printf("Authentication: API Key\n")

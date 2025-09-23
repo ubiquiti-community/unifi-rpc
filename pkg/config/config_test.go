@@ -18,12 +18,12 @@ func TestLoadConfig(t *testing.T) {
 		{
 			name: "valid config with API key",
 			envVars: map[string]string{
-				"UNIFI_RPC_API_KEY":             "test-api-key",
-				"UNIFI_RPC_API_ENDPOINT":        "https://unifi.example.com:8443",
-				"UNIFI_RPC_PORT":                "8080",
-				"UNIFI_RPC_ADDRESS":             "127.0.0.1",
-				"UNIFI_RPC_INSECURE":            "false",
-				"UNIFI_RPC_DEVICE_MAC_ADDRESS":  "aa:bb:cc:dd:ee:ff",
+				"UNIFI_RPC_API_KEY":            "test-api-key",
+				"UNIFI_RPC_API_ENDPOINT":       "https://unifi.example.com:8443",
+				"UNIFI_RPC_PORT":               "8080",
+				"UNIFI_RPC_ADDRESS":            "127.0.0.1",
+				"UNIFI_RPC_INSECURE":           "false",
+				"UNIFI_RPC_DEVICE_MAC_ADDRESS": "aa:bb:cc:dd:ee:ff",
 			},
 			expected: Config{
 				APIKey:           "test-api-key",
@@ -90,10 +90,10 @@ func TestLoadConfig(t *testing.T) {
 			},
 			expected: Config{
 				APIKey:           "test-key",
-				APIEndpoint:      "https://10.0.0.1",     // default
-				Port:             5000,                   // default
-				Address:          "0.0.0.0",              // default
-				Insecure:         true,                   // default
+				APIEndpoint:      "https://10.0.0.1", // default
+				Port:             5000,               // default
+				Address:          "0.0.0.0",          // default
+				Insecure:         true,               // default
 				DeviceMacAddress: "aa:bb:cc:dd:ee:ff",
 			},
 		},
@@ -162,7 +162,11 @@ func TestLoadConfig(t *testing.T) {
 				t.Errorf("Expected Insecure %v, got %v", tt.expected.Insecure, config.Insecure)
 			}
 			if config.DeviceMacAddress != tt.expected.DeviceMacAddress {
-				t.Errorf("Expected DeviceMacAddress %q, got %q", tt.expected.DeviceMacAddress, config.DeviceMacAddress)
+				t.Errorf(
+					"Expected DeviceMacAddress %q, got %q",
+					tt.expected.DeviceMacAddress,
+					config.DeviceMacAddress,
+				)
 			}
 		})
 	}

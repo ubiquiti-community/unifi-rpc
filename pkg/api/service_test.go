@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/ubiquiti-community/go-unifi/unifi"
-
 	"github.com/ubiquiti-community/unifi-rpc/pkg/config"
 )
 
@@ -150,20 +149,20 @@ func TestNewBMCService(t *testing.T) {
 			// Only fail if it's not a network-related error
 			if err, ok := r.(error); ok {
 				errMsg := err.Error()
-				if strings.Contains(errMsg, "dial tcp") || 
-				   strings.Contains(errMsg, "no such host") ||
-				   strings.Contains(errMsg, "connection refused") ||
-				   strings.Contains(errMsg, "connect: connection refused") {
+				if strings.Contains(errMsg, "dial tcp") ||
+					strings.Contains(errMsg, "no such host") ||
+					strings.Contains(errMsg, "connection refused") ||
+					strings.Contains(errMsg, "connect: connection refused") {
 					// Network errors are expected in unit tests
 					return
 				}
 			}
 			// For string panics, check if they contain network-related messages
 			if errStr, ok := r.(string); ok {
-				if strings.Contains(errStr, "dial tcp") || 
-				   strings.Contains(errStr, "no such host") ||
-				   strings.Contains(errStr, "connection refused") ||
-				   strings.Contains(errStr, "connect: connection refused") {
+				if strings.Contains(errStr, "dial tcp") ||
+					strings.Contains(errStr, "no such host") ||
+					strings.Contains(errStr, "connection refused") ||
+					strings.Contains(errStr, "connect: connection refused") {
 					// Network errors are expected in unit tests
 					return
 				}

@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/ubiquiti-community/go-unifi/unifi"
-
 	"github.com/ubiquiti-community/unifi-rpc/pkg/client"
 	"github.com/ubiquiti-community/unifi-rpc/pkg/config"
 	"github.com/ubiquiti-community/unifi-rpc/pkg/models"
@@ -36,7 +35,9 @@ func validateHeaders(r *http.Request, globalMacAddress string) error {
 	port := r.Header.Get("X-Port")
 
 	if macAddr == "" && globalMacAddress == "" {
-		return fmt.Errorf("Missing X-MAC-Address header and no global device MAC address configured")
+		return fmt.Errorf(
+			"Missing X-MAC-Address header and no global device MAC address configured",
+		)
 	}
 	if port == "" {
 		return fmt.Errorf("Missing X-Port header")
