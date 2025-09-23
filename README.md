@@ -1,9 +1,214 @@
-# Go Repository Template
+# UniFi RPC Server
 
 [![Keep a Changelog](https://img.shields.io/badge/changelog-Keep%20a%20Changelog-%23E05735)](CHANGELOG.md)
 [![GitHub Release](https://img.shields.io/github/v/release/ubiquiti-community/unifi-rpc)](https://github.com/ubiquiti-community/unifi-rpc/releases)
 [![Go Reference](https://pkg.go.dev/badge/github.com/ubiquiti-community/unifi-rpc.svg)](https://pkg.go.dev/github.com/ubiquiti-community/unifi-rpc)
 [![go.mod](https://img.shields.io/github/go-mod/go-version/ubiquiti-community/unifi-rpc)](go.mod)
+
+A header-based BMC (Baseboard Management Controller) RPC server for UniFi network devices, compatible with Tinkerbell's bmclib and hardware provider patterns.
+
+## Overview
+
+This server provides BMC-style power management capabilities for UniFi switches through a header-based HTTP API. It's designed to integrate seamlessly with Tinkerbell's hardware provisioning system and follows bmclib's RPC provider patterns.
+
+## Key Features
+
+- **Header-Based Routing**: Machine identification via HTTP headers (no path parameters)
+- **Dual Authentication**: Supports both username/password and API key authentication
+- **Standard Library Only**: No external routing dependencies (removed Gorilla mux)
+- **Tinkerbell Compatible**: Works with Tinkerbell's StaticHeaders configuration
+- **bmclib Integration**: Compatible with bmclib's RPC provider patterns
+
+## Architecture Changes
+
+### Before (Path-Based)
+
+```
+POST /device/{mac}/port/{port}/poweron
+```
+
+### After (Header-Based)
+
+```
+POST /poweron
+Headers:
+  X-MAC-Address: aa:bb:cc:dd:ee:ff
+  X-Port: 1
+```
+
+## Installation
+
+```bash
+go build -o unifi-rpc ./cmd/bmc
+```
+
+## Configuration
+
+Configuration is handled through command line flags and environment variables using Viper. No config file is required.
+
+### Environment Variables
+
+All environment variables are prefixed with `UNIFI_RPC_`:
+
+| Environment Variable     | Default            | Description                            |
+| ------------------------ | ------------------ | -------------------------------------- |
+| `UNIFI_RPC_PORT`         | `5000`             | Port to listen on                      |
+| `UNIFI_RPC_ADDRESS`      | `0.0.0.0`          | Address to listen on                   |
+| `UNIFI_RPC_API_KEY`      |                    | UniFi controller API key (recommended) |
+| `UNIFI_RPC_USERNAME`     |                    | UniFi controller username              |
+| `UNIFI_RPC_PASSWORD`     |                    | UniFi controller password              |
+| `UNIFI_RPC_API_ENDPOINT` | `https://10.0.0.1` | UniFi controller API endpoint          |
+| `UNIFI_RPC_INSECURE`     | `true`             | Allow insecure TLS connections         |
+
+### Command Line Flags
+
+| Flag             | Default            | Description                            |
+| ---------------- | ------------------ | -------------------------------------- |
+| `--port`         | `5000`             | Port to listen on                      |
+| `--address`      | `0.0.0.0`          | Address to listen on                   |
+| `--api-key`      |                    | UniFi controller API key (recommended) |
+| `--username`     |                    | UniFi controller username              |
+| `--password`     |                    | UniFi controller password              |
+| `--api-endpoint` | `https://10.0.0.1` | UniFi controller API endpoint          |
+| `--insecure`     | `true`             | Allow insecure TLS connections         |
+| `--help`         |                    | Show help message                      |
+
+### Authentication
+
+Choose one authentication method:
+
+- **API Key** (recommended): Set `UNIFI_RPC_API_KEY` or use `--api-key`
+- **Username/Password**: Set both `UNIFI_RPC_USERNAME` and `UNIFI_RPC_PASSWORD` or use `--username` and `--password`
+
+### Configuration Examples
+
+```bash
+# Using environment variables
+export UNIFI_RPC_API_KEY="your-api-key-here"
+export UNIFI_RPC_API_ENDPOINT="https://unifi.example.com:8443"
+export UNIFI_RPC_PORT="8080"
+./unifi-rpc
+
+# Using command line flags
+./unifi-rpc --api-key="your-api-key-here" --api-endpoint="https://unifi.example.com:8443" --port=8080
+
+# Using username/password
+./unifi-rpc --username="admin" --password="secret" --api-endpoint="https://10.0.0.1:8443"
+
+# Mixed approach (environment + flags)
+export UNIFI_RPC_API_KEY="your-api-key-here"
+./unifi-rpc --port=8080 --insecure=false
+```
+
+## Usage
+
+### Start the Server
+
+```bash
+# With environment variables
+export UNIFI_RPC_API_KEY="your-api-key-here"
+./unifi-rpc
+
+# With command line flags  
+./unifi-rpc --api-key="your-api-key-here" --port=8080
+
+# Show help
+./unifi-rpc --help
+```
+
+### API Endpoints
+
+All endpoints require these headers:
+
+- `X-MAC-Address`: Device MAC address (e.g., "aa:bb:cc:dd:ee:ff")
+- `X-Port`: Port number (e.g., "1")
+
+#### Power Management
+
+- `GET /status` - Get power status
+- `POST /poweron` - Turn power on
+- `POST /poweroff` - Turn power off
+- `POST /reboot` - Reboot/power cycle
+
+#### PXE Boot
+
+- `POST /pxeboot` - Trigger PXE boot
+
+#### BMC RPC (bmclib compatible)
+
+- `POST /rpc` - Generic RPC endpoint
+
+### Example Requests
+
+```bash
+# Check status
+curl -X GET http://localhost:5000/status \
+  -H "X-MAC-Address: aa:bb:cc:dd:ee:ff" \
+  -H "X-Port: 1"
+
+# Power on
+curl -X POST http://localhost:5000/poweron \
+  -H "X-MAC-Address: aa:bb:cc:dd:ee:ff" \
+  -H "X-Port: 1"
+
+# BMC RPC call
+curl -X POST http://localhost:5000/rpc \
+  -H "X-MAC-Address: aa:bb:cc:dd:ee:ff" \
+  -H "X-Port: 1" \
+  -H "Content-Type: application/json" \
+  -d '{"method": "power.set", "params": {"state": "on"}}'
+```
+
+## Tinkerbell Integration
+
+This server is designed to work with Tinkerbell's BMC provider system:
+
+```yaml
+# Hardware spec example
+apiVersion: tinkerbell.org/v1alpha1
+kind: Hardware
+spec:
+  bmcRef:
+    apiVersion: bmc.tinkerbell.org/v1alpha1
+    kind: Machine
+    name: switch-01
+---
+apiVersion: bmc.tinkerbell.org/v1alpha1  
+kind: Machine
+spec:
+  connection:
+    host: switch-01.example.com
+    providerOptions:
+      rpc:
+        consumerURL: http://unifi-rpc:5000
+        request:
+          staticHeaders:
+            X-MAC-Address: ["aa:bb:cc:dd:ee:ff"]
+            X-Port: ["1"]
+```
+
+## bmclib Integration
+
+Compatible with bmclib's RPC provider:
+
+```go
+import "github.com/bmc-toolbox/bmclib/v2"
+
+client := bmclib.NewClient("127.0.0.1", "admin", "secret",
+    bmclib.WithRPCOpt(rpc.Provider{
+        ConsumerURL: "http://localhost:5000",
+        Opts: rpc.Opts{
+            Request: rpc.RequestOpts{
+                StaticHeaders: http.Header{
+                    "X-MAC-Address": []string{"aa:bb:cc:dd:ee:ff"},
+                    "X-Port": []string{"1"},
+                },
+            },
+        },
+    }),
+)
+```
+
 [![LICENSE](https://img.shields.io/github/license/ubiquiti-community/unifi-rpc)](LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/ubiquiti-community/unifi-rpc/build.yml?branch=main)](https://github.com/ubiquiti-community/unifi-rpc/actions?query=workflow%3Abuild+branch%3Amain)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ubiquiti-community/unifi-rpc)](https://goreportcard.com/report/github.com/ubiquiti-community/unifi-rpc)
@@ -145,6 +350,54 @@ You can use it to add deb/rpm/snap packages, Homebrew Tap, Scoop App Manifest et
 
 If you are developing a library and you like handcrafted changelog and release notes,
 you are free to remove any usage of GoReleaser.
+
+## Migration Guide
+
+### From Path-Based to Header-Based Routing
+
+If migrating from the path-based version:
+
+1. **Update clients** to send headers instead of path parameters
+1. **Configure StaticHeaders** in Tinkerbell hardware specs
+1. **Remove path parameters** from URL endpoints
+1. **Update configuration** to use environment variables or command line flags instead of YAML config files
+1. **Update authentication** to use API keys when possible
+
+### From Config Files to Environment Variables
+
+If you were using a `config.yaml` file, convert it to environment variables:
+
+```yaml
+# Old config.yaml
+username: admin
+password: secret
+apiEndpoint: https://unifi.example.com:8443
+insecure: true
+```
+
+Becomes:
+
+```bash
+# New environment variables
+export UNIFI_RPC_USERNAME="admin"
+export UNIFI_RPC_PASSWORD="secret"  
+export UNIFI_RPC_API_ENDPOINT="https://unifi.example.com:8443"
+export UNIFI_RPC_INSECURE=true
+```
+
+## Development
+
+### Running Tests
+
+```bash
+go test ./...
+```
+
+### Building
+
+```bash
+go build -o unifi-rpc ./cmd/bmc
+```
 
 ## Contributing
 

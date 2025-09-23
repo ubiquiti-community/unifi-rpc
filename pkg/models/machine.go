@@ -3,8 +3,6 @@ package models
 import (
 	"net/http"
 	"strconv"
-
-	"github.com/gorilla/mux"
 )
 
 type Machine struct {
@@ -12,12 +10,12 @@ type Machine struct {
 	PortIdx    string `json:"port"`
 }
 
+// GetMachine extracts machine information from HTTP headers
+// X-MAC-Address and X-Port headers are used for identification
 func GetMachine(r *http.Request) Machine {
-	params := mux.Vars(r)
-
 	return Machine{
-		MacAddress: params["mac"],
-		PortIdx:    params["port"],
+		MacAddress: r.Header.Get("X-MAC-Address"),
+		PortIdx:    r.Header.Get("X-Port"),
 	}
 }
 

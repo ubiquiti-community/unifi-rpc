@@ -1,54 +1,37 @@
-version: "1"
-
+# Visit https://golangci-lint.run/ for usage documentation
+# and information on other useful linters
+version: "2"
+issues:
+  max-same-issues: 0
 linters:
-  disable:
-  - all
   enable:
-  - bodyclose
-  - dogsled
-  - dupl
-  - errcheck
-  - exportloopref
-  - funlen
-  - gochecknoinits
-  - gocritic
-  - goconst
-  - gocyclo
-  - gofumpt
-  - goimports
-  - revive
-  - rowserrcheck
-  - goprintffuncname
-  - gosec
-  - gosimple
-  - govet
-  - ineffassign
-  - misspell
-  - nakedret
-  - noctx
-  - nolintlint
-  - staticcheck
-  - stylecheck
-  - sqlclosecheck
-  - typecheck
-  - unconvert
-  - unparam
-  - unused
-  - whitespace
+    - durationcheck
+    - errcheck
+    - copyloopvar
+    - forcetypeassert
+    - godot
+    - ineffassign
+    - makezero
+    - misspell
+    - nilerr
+    - predeclared
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - govet
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+    - golines
   settings:
-    funlen:
-      lines: 100
-      statements: 50
-    gocyclo:
-      min-complexity: 15
-    importas:
-      no-unaliased: false
-      no-extra-aliases: false
-    misspell:
-      locale: US
-    nolintlint:
-      allow-unused: false # report any unused nolint directives
-      require-explanation: true # require an explanation for nolint directives
-      require-specific: false # don't require nolint directives to be specific about which linter is being skipped
-    revive:
-      confidence: 0
+    gofmt:
+      simplify: true
+      rewrite-rules:
+        - pattern: "interface{}"
+          replacement: "any"
+        - pattern: "a[b:len(a)]"
+          replacement: "a[b:]"
