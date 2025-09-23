@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/ubiquiti-community/go-unifi/unifi"
+
 	"github.com/ubiquiti-community/unifi-rpc/pkg/client"
 	"github.com/ubiquiti-community/unifi-rpc/pkg/config"
 	"github.com/ubiquiti-community/unifi-rpc/pkg/models"
@@ -24,16 +25,18 @@ type RpcService interface {
 }
 
 type rpcService struct {
-	client client.Client
+	client           client.Client
+	globalMacAddress string
 }
 
 // validateHeaders checks if required headers for machine identification are present
-func validateHeaders(r *http.Request) error {
+// MAC address is optional if globalMacAddress is configured
+func validateHeaders(r *http.Request, globalMacAddress string) error {
 	macAddr := r.Header.Get("X-MAC-Address")
 	port := r.Header.Get("X-Port")
 
-	if macAddr == "" {
-		return fmt.Errorf("Missing X-MAC-Address header")
+	if macAddr == "" && globalMacAddress == "" {
+		return fmt.Errorf("Missing X-MAC-Address header and no global device MAC address configured")
 	}
 	if port == "" {
 		return fmt.Errorf("Missing X-Port header")
@@ -183,12 +186,12 @@ func (b *rpcService) GetPower(
 }
 
 func (b *rpcService) StatusHandler(w http.ResponseWriter, r *http.Request) {
-	if err := validateHeaders(r); err != nil {
+	if err := validateHeaders(r, b.globalMacAddress); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	machine := models.GetMachine(r)
+	machine := models.GetMachineWithGlobal(r, b.globalMacAddress)
 
 	isPoweredOn, err := b.isPoweredOn(r.Context(), machine.MacAddress, machine.PortIdx)
 	if err != nil {
@@ -231,12 +234,12 @@ func (b *rpcService) StatusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (b *rpcService) PowerOnHandler(w http.ResponseWriter, r *http.Request) {
-	if err := validateHeaders(r); err != nil {
+	if err := validateHeaders(r, b.globalMacAddress); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	machine := models.GetMachine(r)
+	machine := models.GetMachineWithGlobal(r, b.globalMacAddress)
 
 	if err := b.setPower(r.Context(), machine.MacAddress, machine.PortIdx, true); err != nil {
 		writeError(
@@ -257,12 +260,12 @@ func (b *rpcService) PowerOnHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (b *rpcService) PowerOffHandler(w http.ResponseWriter, r *http.Request) {
-	if err := validateHeaders(r); err != nil {
+	if err := validateHeaders(r, b.globalMacAddress); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	machine := models.GetMachine(r)
+	machine := models.GetMachineWithGlobal(r, b.globalMacAddress)
 
 	if err := b.setPower(r.Context(), machine.MacAddress, machine.PortIdx, false); err != nil {
 		writeError(
@@ -283,12 +286,12 @@ func (b *rpcService) PowerOffHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (b *rpcService) PxeBootHandler(w http.ResponseWriter, r *http.Request) {
-	if err := validateHeaders(r); err != nil {
+	if err := validateHeaders(r, b.globalMacAddress); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	machine := models.GetMachine(r)
+	machine := models.GetMachineWithGlobal(r, b.globalMacAddress)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
@@ -303,12 +306,12 @@ func Ptr[T any](v T) *T {
 }
 
 func (b *rpcService) RebootHandler(w http.ResponseWriter, r *http.Request) {
-	if err := validateHeaders(r); err != nil {
+	if err := validateHeaders(r, b.globalMacAddress); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	machine := models.GetMachine(r)
+	machine := models.GetMachineWithGlobal(r, b.globalMacAddress)
 
 	if _, err := b.client.ExecuteCmd(r.Context(), "default", "devmgr", unifi.Cmd{
 		Command: "power-cycle",
@@ -333,12 +336,12 @@ func (b *rpcService) RebootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (b *rpcService) RpcHandler(w http.ResponseWriter, r *http.Request) {
-	if err := validateHeaders(r); err != nil {
+	if err := validateHeaders(r, b.globalMacAddress); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	machine := models.GetMachine(r)
+	machine := models.GetMachineWithGlobal(r, b.globalMacAddress)
 
 	req := RequestPayload{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -433,5 +436,6 @@ func NewBMCService(cfg config.Config) RpcService {
 			cfg.APIEndpoint,
 			cfg.Insecure,
 		),
+		globalMacAddress: cfg.DeviceMacAddress,
 	}
 }

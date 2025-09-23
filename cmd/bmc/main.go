@@ -25,9 +25,15 @@ Authentication:
   API key: --api-key or UNIFI_RPC_API_KEY
   Username/Password: --username/--password or UNIFI_RPC_USERNAME/UNIFI_RPC_PASSWORD
 
+Device Configuration:
+  Global device MAC address can be set via --device-mac-address or UNIFI_RPC_DEVICE_MAC_ADDRESS
+  X-MAC-Address header will override the global device MAC address when provided
+  X-Port header is always required
+
 Example usage:
   unifi-rpc --api-key=your_key --api-endpoint=https://unifi.example.com:8443
-  UNIFI_RPC_API_KEY=your_key unifi-rpc`,
+  unifi-rpc --device-mac-address=aa:bb:cc:dd:ee:ff --api-key=your_key
+  UNIFI_RPC_API_KEY=your_key UNIFI_RPC_DEVICE_MAC_ADDRESS=aa:bb:cc:dd:ee:ff unifi-rpc`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Load configuration using Viper
 		cfg, err := config.LoadConfig()
@@ -37,11 +43,12 @@ Example usage:
 
 		// Convert to legacy config format for API compatibility
 		legacyConfig := config.Config{
-			Username:    cfg.Username,
-			Password:    cfg.Password,
-			APIKey:      cfg.APIKey,
-			APIEndpoint: cfg.APIEndpoint,
-			Insecure:    cfg.Insecure,
+			Username:         cfg.Username,
+			Password:         cfg.Password,
+			APIKey:           cfg.APIKey,
+			APIEndpoint:      cfg.APIEndpoint,
+			Insecure:         cfg.Insecure,
+			DeviceMacAddress: cfg.DeviceMacAddress,
 		}
 
 		svc := api.NewBMCService(legacyConfig)
@@ -61,6 +68,9 @@ Example usage:
 
 		fmt.Printf("Server is running on http://%s:%d\n", cfg.Address, cfg.Port)
 		fmt.Printf("Machine identification via headers: X-MAC-Address, X-Port\n")
+		if cfg.DeviceMacAddress != "" {
+			fmt.Printf("Global device MAC address: %s (X-MAC-Address header will override)\n", cfg.DeviceMacAddress)
+		}
 		if cfg.APIKey != "" {
 			fmt.Printf("Authentication: API Key\n")
 		} else {

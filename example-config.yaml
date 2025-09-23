@@ -1,0 +1,32 @@
+# Example unifi-rpc configuration file
+# Place this file at ~/.unifi-rpc.yaml or specify with --config flag
+
+# Server configuration
+port: 5000
+address: "0.0.0.0"
+
+# UniFi Controller authentication (choose one method)
+# Option 1: API Key (recommended)
+api_key: "your_unifi_api_key_here"
+
+# Option 2: Username/Password
+# username: "admin"
+# password: "your_password"
+
+# UniFi Controller connection
+api_endpoint: "https://unifi.example.com:8443"
+insecure: true
+
+# Global device MAC address for the network switch
+# This allows omitting the X-MAC-Address header in requests
+# The X-MAC-Address header will override this value when provided
+device_mac_address: "aa:bb:cc:dd:ee:ff"
+# Example usage:
+# 1. With global MAC configured:
+#    curl -H "X-Port: 1" http://localhost:5000/poweron
+#
+# 2. Override global MAC with header:
+#    curl -H "X-MAC-Address: 11:22:33:44:55:66" -H "X-Port: 1" http://localhost:5000/poweron
+#
+# 3. Without global MAC (original behavior):
+#    curl -H "X-MAC-Address: aa:bb:cc:dd:ee:ff" -H "X-Port: 1" http://localhost:5000/poweron

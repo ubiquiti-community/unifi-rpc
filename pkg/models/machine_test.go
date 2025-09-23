@@ -133,3 +133,91 @@ func TestMachine_GetPort(t *testing.T) {
 		})
 	}
 }
+
+func TestGetMachineWithGlobal(t *testing.T) {
+	tests := []struct {
+		name             string
+		headers          map[string]string
+		globalMacAddress string
+		expected         Machine
+	}{
+		{
+			name: "header MAC overrides global",
+			headers: map[string]string{
+				"X-MAC-Address": "aa:bb:cc:dd:ee:ff",
+				"X-Port":        "1",
+			},
+			globalMacAddress: "11:22:33:44:55:66",
+			expected: Machine{
+				MacAddress: "aa:bb:cc:dd:ee:ff",
+				PortIdx:    "1",
+			},
+		},
+		{
+			name: "uses global MAC when header missing",
+			headers: map[string]string{
+				"X-Port": "2",
+			},
+			globalMacAddress: "11:22:33:44:55:66",
+			expected: Machine{
+				MacAddress: "11:22:33:44:55:66",
+				PortIdx:    "2",
+			},
+		},
+		{
+			name: "empty global MAC, no header",
+			headers: map[string]string{
+				"X-Port": "3",
+			},
+			globalMacAddress: "",
+			expected: Machine{
+				MacAddress: "",
+				PortIdx:    "3",
+			},
+		},
+		{
+			name: "header MAC empty but present, ignores global",
+			headers: map[string]string{
+				"X-MAC-Address": "",
+				"X-Port":        "4",
+			},
+			globalMacAddress: "11:22:33:44:55:66",
+			expected: Machine{
+				MacAddress: "",
+				PortIdx:    "4",
+			},
+		},
+		{
+			name: "no headers, uses global",
+			headers: map[string]string{},
+			globalMacAddress: "ff:ee:dd:cc:bb:aa",
+			expected: Machine{
+				MacAddress: "ff:ee:dd:cc:bb:aa",
+				PortIdx:    "",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, err := http.NewRequest("POST", "/test", nil)
+			if err != nil {
+				t.Fatalf("Failed to create request: %v", err)
+			}
+
+			// Set headers
+			for key, value := range tt.headers {
+				req.Header.Set(key, value)
+			}
+
+			machine := GetMachineWithGlobal(req, tt.globalMacAddress)
+
+			if machine.MacAddress != tt.expected.MacAddress {
+				t.Errorf("Expected MacAddress %q, got %q", tt.expected.MacAddress, machine.MacAddress)
+			}
+			if machine.PortIdx != tt.expected.PortIdx {
+				t.Errorf("Expected PortIdx %q, got %q", tt.expected.PortIdx, machine.PortIdx)
+			}
+		})
+	}
+}

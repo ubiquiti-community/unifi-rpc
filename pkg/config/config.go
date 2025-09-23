@@ -21,6 +21,9 @@ type Config struct {
 	// UniFi Controller connection
 	APIEndpoint string `mapstructure:"api_endpoint"`
 	Insecure    bool   `mapstructure:"insecure"`
+
+	// Device configuration
+	DeviceMacAddress string `mapstructure:"device_mac_address"`
 }
 
 var (
@@ -54,6 +57,7 @@ func InitConfig() {
 	viper.SetDefault("username", "")
 	viper.SetDefault("password", "")
 	viper.SetDefault("api_key", "")
+	viper.SetDefault("device_mac_address", "")
 
 	// If a config file is found, read it in
 	if err := viper.ReadInConfig(); err == nil {
@@ -79,6 +83,9 @@ func InitFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().String("api-endpoint", "https://10.0.0.1", "UniFi controller API endpoint")
 	cmd.PersistentFlags().Bool("insecure", true, "allow insecure TLS connections")
 
+	// Device flags
+	cmd.PersistentFlags().String("device-mac-address", "", "Global device MAC address for the network switch (can be overridden by X-MAC-Address header)")
+
 	// Bind flags to viper
 	viper.BindPFlag("port", cmd.PersistentFlags().Lookup("port"))
 	viper.BindPFlag("address", cmd.PersistentFlags().Lookup("address"))
@@ -87,6 +94,7 @@ func InitFlags(cmd *cobra.Command) {
 	viper.BindPFlag("api_key", cmd.PersistentFlags().Lookup("api-key"))
 	viper.BindPFlag("api_endpoint", cmd.PersistentFlags().Lookup("api-endpoint"))
 	viper.BindPFlag("insecure", cmd.PersistentFlags().Lookup("insecure"))
+	viper.BindPFlag("device_mac_address", cmd.PersistentFlags().Lookup("device-mac-address"))
 }
 
 // LoadConfig loads configuration from viper
