@@ -11,8 +11,8 @@ before:
 
 builds:
   - env: ["CGO_ENABLED=0"]
-    main: ./cmd/unifi-rpc
-    binary: unifi-rpc
+    main: ./cmd/bmc
+    binary: bmc
     goos:
       - linux
     goarch:
