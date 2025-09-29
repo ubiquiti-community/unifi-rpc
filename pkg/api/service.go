@@ -381,6 +381,7 @@ func (b *rpcService) RpcHandler(w http.ResponseWriter, r *http.Request) {
 			log.Fatalf("error asserting params to PowerSetParams")
 			fmt.Fprintf(w, "error asserting params to PowerSetParams")
 			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 		state := p.State
 		err := b.setPortPower(r.Context(), machine.MacAddress, machine.PortIdx, state)
