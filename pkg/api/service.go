@@ -182,11 +182,6 @@ func (b *rpcService) GetPower(
 	return
 }
 
-// Ptr is a helper function to get a pointer to a value
-func Ptr[T any](v T) *T {
-	return &v
-}
-
 func (b *rpcService) RpcHandler(w http.ResponseWriter, r *http.Request) {
 	if err := validateHeaders(r, b.globalMacAddress); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -252,10 +247,18 @@ func (b *rpcService) RpcHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case "reset", "cycle":
+			p := machine.GetPort()
+			if p == nil {
+				rp.Error = &ResponseError{
+					Code:    http.StatusBadRequest,
+					Message: fmt.Sprintf("invalid port index: %s", machine.PortIdx),
+				}
+				break
+			}
 			if _, err := b.client.ExecuteCmd(r.Context(), "default", "devmgr", unifi.Cmd{
 				Command: "power-cycle",
 				Mac:     machine.MacAddress,
-				PortIdx: Ptr(machine.GetPort()),
+				PortIdx: p,
 			}); err != nil {
 				rp.Error = &ResponseError{
 					Code:    http.StatusInternalServerError,

@@ -118,7 +118,7 @@ func TestHeaderValidation(t *testing.T) {
 			}
 
 			w := httptest.NewRecorder()
-			svc.StatusHandler(w, req)
+			svc.RpcHandler(w, req)
 
 			if w.Code != tt.expectedStatus {
 				t.Errorf(

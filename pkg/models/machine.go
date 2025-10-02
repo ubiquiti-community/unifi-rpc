@@ -36,10 +36,11 @@ func GetMachineWithGlobal(r *http.Request, globalMacAddress string) Machine {
 	}
 }
 
-func (m *Machine) GetPort() int {
-	port, err := strconv.Atoi(m.PortIdx)
-	if err != nil {
-		return 0
+func (m *Machine) GetPort() *int {
+	p := 0
+	if port, err := strconv.Atoi(m.PortIdx); err == nil {
+		p = port
+		return &p
 	}
-	return port
+	return nil
 }
