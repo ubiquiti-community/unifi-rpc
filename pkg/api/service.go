@@ -16,11 +16,6 @@ import (
 
 type RpcService interface {
 	RpcHandler(w http.ResponseWriter, r *http.Request)
-	StatusHandler(w http.ResponseWriter, r *http.Request)
-	PowerOnHandler(w http.ResponseWriter, r *http.Request)
-	PowerOffHandler(w http.ResponseWriter, r *http.Request)
-	PxeBootHandler(w http.ResponseWriter, r *http.Request)
-	RebootHandler(w http.ResponseWriter, r *http.Request)
 }
 
 type rpcService struct {
@@ -187,154 +182,9 @@ func (b *rpcService) GetPower(
 	return
 }
 
-func (b *rpcService) StatusHandler(w http.ResponseWriter, r *http.Request) {
-	if err := validateHeaders(r, b.globalMacAddress); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	machine := models.GetMachineWithGlobal(r, b.globalMacAddress)
-
-	isPoweredOn, err := b.isPoweredOn(r.Context(), machine.MacAddress, machine.PortIdx)
-	if err != nil {
-		writeError(
-			w,
-			http.StatusNotFound,
-			fmt.Sprintf(
-				"error checking power state for MAC Address %s, Port Index %s: %v",
-				machine.MacAddress,
-				machine.PortIdx,
-				err,
-			),
-		)
-		return
-	}
-
-	status := struct {
-		PoweredOn bool
-	}{
-		PoweredOn: isPoweredOn,
-	}
-
-	fmt.Fprintf(
-		w,
-		"power state for MAC Address %s, Port Index %s",
-		machine.MacAddress,
-		machine.PortIdx,
-	)
-
-	if err = json.NewEncoder(w).Encode(status); err != nil {
-		fmt.Fprintf(
-			w,
-			"error encoding power state for MAC Address %s, Port Index %s: %v",
-			machine.MacAddress,
-			machine.PortIdx,
-			err,
-		)
-		return
-	}
-}
-
-func (b *rpcService) PowerOnHandler(w http.ResponseWriter, r *http.Request) {
-	if err := validateHeaders(r, b.globalMacAddress); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	machine := models.GetMachineWithGlobal(r, b.globalMacAddress)
-
-	if err := b.setPower(r.Context(), machine.MacAddress, machine.PortIdx, true); err != nil {
-		writeError(
-			w,
-			http.StatusInternalServerError,
-			fmt.Sprintf(
-				"error setting power on for MAC Address %s, Port Index %s: %v",
-				machine.MacAddress,
-				machine.PortIdx,
-				err,
-			),
-		)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "power on successful"})
-}
-
-func (b *rpcService) PowerOffHandler(w http.ResponseWriter, r *http.Request) {
-	if err := validateHeaders(r, b.globalMacAddress); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	machine := models.GetMachineWithGlobal(r, b.globalMacAddress)
-
-	if err := b.setPower(r.Context(), machine.MacAddress, machine.PortIdx, false); err != nil {
-		writeError(
-			w,
-			http.StatusInternalServerError,
-			fmt.Sprintf(
-				"error setting power off for MAC Address %s, Port Index %s: %v",
-				machine.MacAddress,
-				machine.PortIdx,
-				err,
-			),
-		)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "power off successful"})
-}
-
-func (b *rpcService) PxeBootHandler(w http.ResponseWriter, r *http.Request) {
-	if err := validateHeaders(r, b.globalMacAddress); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	machine := models.GetMachineWithGlobal(r, b.globalMacAddress)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status": "pxe boot requested",
-		"mac":    machine.MacAddress,
-		"port":   machine.PortIdx,
-	})
-}
-
+// Ptr is a helper function to get a pointer to a value
 func Ptr[T any](v T) *T {
 	return &v
-}
-
-func (b *rpcService) RebootHandler(w http.ResponseWriter, r *http.Request) {
-	if err := validateHeaders(r, b.globalMacAddress); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	machine := models.GetMachineWithGlobal(r, b.globalMacAddress)
-
-	if _, err := b.client.ExecuteCmd(r.Context(), "default", "devmgr", unifi.Cmd{
-		Command: "power-cycle",
-		Mac:     machine.MacAddress,
-		PortIdx: Ptr(machine.GetPort()),
-	}); err != nil {
-		writeError(
-			w,
-			http.StatusInternalServerError,
-			fmt.Sprintf(
-				"error rebooting device for MAC Address %s, Port Index %s: %v",
-				machine.MacAddress,
-				machine.PortIdx,
-				err,
-			),
-		)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "reboot successful"})
 }
 
 func (b *rpcService) RpcHandler(w http.ResponseWriter, r *http.Request) {
@@ -359,31 +209,34 @@ func (b *rpcService) RpcHandler(w http.ResponseWriter, r *http.Request) {
 	case PowerGetMethod:
 		state, err := b.GetPower(r.Context(), machine.MacAddress, machine.PortIdx)
 		if err != nil {
-			log.Fatalf(
-				"error getting power state for MAC Address %s, Port Index %s: %v",
-				machine.MacAddress,
-				machine.PortIdx,
-				err,
-			)
-			fmt.Fprintf(
-				w,
-				"error getting power state for MAC Address %s, Port Index %s: %v",
-				machine.MacAddress,
-				machine.PortIdx,
-				err,
-			)
-			w.WriteHeader(http.StatusBadRequest)
-			return
+			rp.Error = &ResponseError{
+				Code:    http.StatusInternalServerError,
+				Message: fmt.Sprintf("error getting power state: %v", err),
+			}
+		} else {
+			rp.Result = state
 		}
-		rp.Result = state
+
 	case PowerSetMethod:
-		p, ok := req.Params.(PowerSetParams)
-		if !ok {
-			log.Fatalf("error asserting params to PowerSetParams")
-			fmt.Fprintf(w, "error asserting params to PowerSetParams")
-			w.WriteHeader(http.StatusBadRequest)
-			return
+		// Parse params from the request
+		paramsJSON, err := json.Marshal(req.Params)
+		if err != nil {
+			rp.Error = &ResponseError{
+				Code:    http.StatusBadRequest,
+				Message: fmt.Sprintf("error marshaling params: %v", err),
+			}
+			break
 		}
+
+		var p PowerSetParams
+		if err := json.Unmarshal(paramsJSON, &p); err != nil {
+			rp.Error = &ResponseError{
+				Code:    http.StatusBadRequest,
+				Message: fmt.Sprintf("error parsing PowerSetParams: %v", err),
+			}
+			break
+		}
+
 		state := p.State
 		switch state {
 		case "on", "off", "soft":
@@ -392,74 +245,82 @@ func (b *rpcService) RpcHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			err := b.setPortPower(r.Context(), machine.MacAddress, machine.PortIdx, state)
 			if err != nil {
-				log.Fatalf(
-					"error setting power on for MAC Address %s, Port Index %s: %v",
-					machine.MacAddress,
-					machine.PortIdx,
-					err,
-				)
-				fmt.Fprintf(
-					w,
-					"error setting power on for MAC Address %s, Port Index %s: %v",
-					machine.MacAddress,
-					machine.PortIdx,
-					err,
-				)
-				w.WriteHeader(http.StatusBadRequest)
-				return
+				rp.Error = &ResponseError{
+					Code:    http.StatusInternalServerError,
+					Message: fmt.Sprintf("error setting power state: %v", err),
+				}
 			}
+
 		case "reset", "cycle":
 			if _, err := b.client.ExecuteCmd(r.Context(), "default", "devmgr", unifi.Cmd{
 				Command: "power-cycle",
 				Mac:     machine.MacAddress,
 				PortIdx: Ptr(machine.GetPort()),
 			}); err != nil {
-				log.Fatalf(
-					"error rebooting device for MAC Address %s, Port Index %s: %v",
-					machine.MacAddress,
-					machine.PortIdx,
-					err,
-				)
-				fmt.Fprintf(
-					w,
-					"error rebooting device for MAC Address %s, Port Index %s: %v",
-					machine.MacAddress,
-					machine.PortIdx,
-					err,
-				)
-				w.WriteHeader(http.StatusBadRequest)
-				return
+				rp.Error = &ResponseError{
+					Code:    http.StatusInternalServerError,
+					Message: fmt.Sprintf("error power cycling device: %v", err),
+				}
 			}
+
 		default:
-			log.Fatalf("invalid power state %s", state)
-			fmt.Fprintf(w, "invalid power state %s", state)
-			w.WriteHeader(http.StatusBadRequest)
-			return
+			rp.Error = &ResponseError{
+				Code:    http.StatusBadRequest,
+				Message: fmt.Sprintf("invalid power state: %s", state),
+			}
 		}
+
 	case BootDeviceMethod:
-		p, ok := req.Params.(BootDeviceParams)
-		if !ok {
-			log.Fatalf("error asserting params to BootDeviceParams")
-			fmt.Fprintf(w, "error asserting params to BootDeviceParams")
-			w.WriteHeader(http.StatusBadRequest)
+		// Parse params from the request
+		paramsJSON, err := json.Marshal(req.Params)
+		if err != nil {
+			rp.Error = &ResponseError{
+				Code:    http.StatusBadRequest,
+				Message: fmt.Sprintf("error marshaling params: %v", err),
+			}
+			break
 		}
-		fmt.Fprintf(
-			w,
-			"boot device request for MAC Address %s, Port Index %s, Device %s, Persistent %t, EFIBoot %t",
-			machine.MacAddress,
-			machine.PortIdx,
-			p.Device,
-			p.Persistent,
-			p.EFIBoot,
-		)
+
+		var p BootDeviceParams
+		if err := json.Unmarshal(paramsJSON, &p); err != nil {
+			rp.Error = &ResponseError{
+				Code:    http.StatusBadRequest,
+				Message: fmt.Sprintf("error parsing BootDeviceParams: %v", err),
+			}
+			break
+		}
+
+		// Boot device method is acknowledged but not implemented for UniFi
+		rp.Result = map[string]any{
+			"acknowledged": true,
+			"device":       p.Device,
+			"persistent":   p.Persistent,
+			"efiBoot":      p.EFIBoot,
+			"message":      "boot device setting not supported for UniFi devices",
+		}
 
 	case PingMethod:
 		rp.Result = "pong"
+
 	default:
-		w.WriteHeader(http.StatusNotFound)
+		rp.Error = &ResponseError{
+			Code:    http.StatusNotFound,
+			Message: fmt.Sprintf("unknown method: %s", req.Method),
+		}
 	}
-	by, _ := json.Marshal(rp)
-	w.Write(by)
+
+	// Set appropriate HTTP status code
+	w.Header().Set("Content-Type", "application/json")
+	if rp.Error != nil {
+		w.WriteHeader(rp.Error.Code)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+
+	// Write response
+	if err := json.NewEncoder(w).Encode(rp); err != nil {
+		log.Printf("error encoding response: %v", err)
+	}
 }
 
 func NewBMCService(cfg config.Config) RpcService {
