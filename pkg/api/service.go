@@ -132,11 +132,12 @@ func (b *rpcService) setPortPower(
 	state string,
 ) error {
 	stateBool := false
-	if state == "on" {
+	switch state {
+	case "on":
 		stateBool = true
-	} else if state == "off" {
+	case "off":
 		stateBool = false
-	} else {
+	default:
 		return fmt.Errorf("invalid power state %s", state)
 	}
 	return b.setPower(ctx, macAddress, portIdx, stateBool)
@@ -384,21 +385,54 @@ func (b *rpcService) RpcHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		state := p.State
-		err := b.setPortPower(r.Context(), machine.MacAddress, machine.PortIdx, state)
-		if err != nil {
-			log.Fatalf(
-				"error setting power on for MAC Address %s, Port Index %s: %v",
-				machine.MacAddress,
-				machine.PortIdx,
-				err,
-			)
-			fmt.Fprintf(
-				w,
-				"error setting power on for MAC Address %s, Port Index %s: %v",
-				machine.MacAddress,
-				machine.PortIdx,
-				err,
-			)
+		switch state {
+		case "on", "off", "soft":
+			if state == "soft" {
+				state = "off"
+			}
+			err := b.setPortPower(r.Context(), machine.MacAddress, machine.PortIdx, state)
+			if err != nil {
+				log.Fatalf(
+					"error setting power on for MAC Address %s, Port Index %s: %v",
+					machine.MacAddress,
+					machine.PortIdx,
+					err,
+				)
+				fmt.Fprintf(
+					w,
+					"error setting power on for MAC Address %s, Port Index %s: %v",
+					machine.MacAddress,
+					machine.PortIdx,
+					err,
+				)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+		case "reset", "cycle":
+			if _, err := b.client.ExecuteCmd(r.Context(), "default", "devmgr", unifi.Cmd{
+				Command: "power-cycle",
+				Mac:     machine.MacAddress,
+				PortIdx: Ptr(machine.GetPort()),
+			}); err != nil {
+				log.Fatalf(
+					"error rebooting device for MAC Address %s, Port Index %s: %v",
+					machine.MacAddress,
+					machine.PortIdx,
+					err,
+				)
+				fmt.Fprintf(
+					w,
+					"error rebooting device for MAC Address %s, Port Index %s: %v",
+					machine.MacAddress,
+					machine.PortIdx,
+					err,
+				)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+		default:
+			log.Fatalf("invalid power state %s", state)
+			fmt.Fprintf(w, "invalid power state %s", state)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -420,7 +454,6 @@ func (b *rpcService) RpcHandler(w http.ResponseWriter, r *http.Request) {
 		)
 
 	case PingMethod:
-
 		rp.Result = "pong"
 	default:
 		w.WriteHeader(http.StatusNotFound)
