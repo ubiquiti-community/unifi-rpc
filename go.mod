@@ -5,7 +5,7 @@ go 1.25
 require (
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/viper v1.19.0
-	github.com/ubiquiti-community/go-unifi v1.33.14-0.20251007071330-6a5c897b815a
+	github.com/ubiquiti-community/go-unifi v1.33.14-0.20251007072650-be0168ff88fd
 )
 
 require (
