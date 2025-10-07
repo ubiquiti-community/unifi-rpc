@@ -10,16 +10,6 @@ type Machine struct {
 	PortIdx    string `json:"port"`
 }
 
-// GetMachine extracts machine information from HTTP headers with optional global MAC address fallback
-// X-MAC-Address header takes priority over globalMacAddress
-// X-Port header is required
-func GetMachine(r *http.Request) Machine {
-	return Machine{
-		MacAddress: r.Header.Get("X-MAC-Address"),
-		PortIdx:    r.Header.Get("X-Port"),
-	}
-}
-
 // GetMachineWithGlobal extracts machine information from HTTP headers with global MAC address fallback
 // X-MAC-Address header takes priority over globalMacAddress
 // If X-MAC-Address is not provided, globalMacAddress is used
