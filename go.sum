@@ -64,6 +64,8 @@ github.com/ubiquiti-community/go-unifi v1.33.13-0.20250815000754-9bfd66c219d8 h1
 github.com/ubiquiti-community/go-unifi v1.33.13-0.20250815000754-9bfd66c219d8/go.mod h1:jBZOi0xNZNnuVczgnW8WsYM82qDypqjmBuxZQFBzmCg=
 github.com/ubiquiti-community/go-unifi v1.33.13 h1:t5dj8J6nYWUioZxeuMpfGdOqEu2ErAxHSzGl7terFDw=
 github.com/ubiquiti-community/go-unifi v1.33.13/go.mod h1:O5mFOGhlWP2DikgeX7ubg8WaOSOA6iWhdbpR1SiQQmc=
+github.com/ubiquiti-community/go-unifi v1.33.14-0.20251007053833-899f8351d79e h1:5iJrb70pqucowApgS5+lU404wbxbDf1T8N/kNzZeA6Y=
+github.com/ubiquiti-community/go-unifi v1.33.14-0.20251007053833-899f8351d79e/go.mod h1:O5mFOGhlWP2DikgeX7ubg8WaOSOA6iWhdbpR1SiQQmc=
 go.uber.org/atomic v1.9.0 h1:ECmE8Bn/WFTYwEW/bpKD3M8VtR/zQVbavAoalC1PYyE=
 go.uber.org/atomic v1.9.0/go.mod h1:fEN4uk6kAWBTFdckzkM89CLk9XfWZrxpCo0nPH17wJc=
 go.uber.org/multierr v1.9.0 h1:7fIwc/ZtS0q++VgcfqFDxSBZVv/Xo49/SYnDFupUwlI=
