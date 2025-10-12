@@ -13,17 +13,11 @@ type Config struct {
 	Port    int    `mapstructure:"port"`
 	Address string `mapstructure:"address"`
 
-	// UniFi Controller authentication (choose one)
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
-	APIKey   string `mapstructure:"api_key"`
-
-	// UniFi Controller connection
-	APIEndpoint string `mapstructure:"api_endpoint"`
-	Insecure    bool   `mapstructure:"insecure"`
-
-	// Device configuration
-	DeviceMacAddress string `mapstructure:"device_mac_address"`
+	// UniFi Switch SSH connection
+	SwitchHost  string `mapstructure:"switch_host"`
+	SSHPort     int    `mapstructure:"ssh_port"`
+	SSHUsername string `mapstructure:"ssh_username"`
+	SSHKeyPath  string `mapstructure:"ssh_key_path"`
 }
 
 var (
@@ -31,7 +25,7 @@ var (
 	cfg     *Config
 )
 
-// InitConfig initializes viper configuration
+// InitConfig initializes viper configuration.
 func InitConfig() {
 	if cfgFile != "" {
 		// Use config file from the flag
@@ -52,12 +46,10 @@ func InitConfig() {
 	// Set default values
 	viper.SetDefault("port", 5000)
 	viper.SetDefault("address", "0.0.0.0")
-	viper.SetDefault("insecure", true)
-	viper.SetDefault("api_endpoint", "https://10.0.0.1")
-	viper.SetDefault("username", "")
-	viper.SetDefault("password", "")
-	viper.SetDefault("api_key", "")
-	viper.SetDefault("device_mac_address", "")
+	viper.SetDefault("ssh_port", 22)
+	viper.SetDefault("ssh_username", "root")
+	viper.SetDefault("switch_host", "")
+	viper.SetDefault("ssh_key_path", "") // Empty default - must be explicitly configured
 
 	// If a config file is found, read it in
 	if err := viper.ReadInConfig(); err == nil {
@@ -65,7 +57,7 @@ func InitConfig() {
 	}
 }
 
-// InitFlags sets up command line flags using cobra
+// InitFlags sets up command line flags using cobra.
 func InitFlags(cmd *cobra.Command) {
 	// Config file flag
 	cmd.PersistentFlags().
@@ -75,33 +67,22 @@ func InitFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().Int("port", 5000, "port to listen on")
 	cmd.PersistentFlags().String("address", "0.0.0.0", "address to listen on")
 
-	// Authentication flags
-	cmd.PersistentFlags().String("username", "", "UniFi controller username")
-	cmd.PersistentFlags().String("password", "", "UniFi controller password")
-	cmd.PersistentFlags().
-		String("api-key", "", "UniFi controller API key (preferred over username/password)")
-
-	// Connection flags
-	cmd.PersistentFlags().
-		String("api-endpoint", "https://10.0.0.1", "UniFi controller API endpoint")
-	cmd.PersistentFlags().Bool("insecure", true, "allow insecure TLS connections")
-
-	// Device flags
-	cmd.PersistentFlags().
-		String("device-mac-address", "", "Global device MAC address for the network switch (can be overridden by X-MAC-Address header)")
+	// SSH connection flags
+	cmd.PersistentFlags().String("switch-host", "", "UniFi switch IP address or hostname")
+	cmd.PersistentFlags().Int("ssh-port", 22, "SSH port")
+	cmd.PersistentFlags().String("ssh-username", "root", "SSH username")
+	cmd.PersistentFlags().String("ssh-key-path", "", "Path to SSH private key file")
 
 	// Bind flags to viper
-	viper.BindPFlag("port", cmd.PersistentFlags().Lookup("port"))
-	viper.BindPFlag("address", cmd.PersistentFlags().Lookup("address"))
-	viper.BindPFlag("username", cmd.PersistentFlags().Lookup("username"))
-	viper.BindPFlag("password", cmd.PersistentFlags().Lookup("password"))
-	viper.BindPFlag("api_key", cmd.PersistentFlags().Lookup("api-key"))
-	viper.BindPFlag("api_endpoint", cmd.PersistentFlags().Lookup("api-endpoint"))
-	viper.BindPFlag("insecure", cmd.PersistentFlags().Lookup("insecure"))
-	viper.BindPFlag("device_mac_address", cmd.PersistentFlags().Lookup("device-mac-address"))
+	_ = viper.BindPFlag("port", cmd.PersistentFlags().Lookup("port"))
+	_ = viper.BindPFlag("address", cmd.PersistentFlags().Lookup("address"))
+	_ = viper.BindPFlag("switch_host", cmd.PersistentFlags().Lookup("switch-host"))
+	_ = viper.BindPFlag("ssh_port", cmd.PersistentFlags().Lookup("ssh-port"))
+	_ = viper.BindPFlag("ssh_username", cmd.PersistentFlags().Lookup("ssh-username"))
+	_ = viper.BindPFlag("ssh_key_path", cmd.PersistentFlags().Lookup("ssh-key-path"))
 }
 
-// LoadConfig loads configuration from viper
+// LoadConfig loads configuration from viper.
 func LoadConfig() (*Config, error) {
 	var config Config
 	if err := viper.Unmarshal(&config); err != nil {
@@ -117,26 +98,28 @@ func LoadConfig() (*Config, error) {
 	return &config, nil
 }
 
-// GetConfig returns the current configuration
+// GetConfig returns the current configuration.
 func GetConfig() *Config {
 	return cfg
 }
 
-// validateConfig ensures the configuration is valid
+// validateConfig ensures the configuration is valid.
 func validateConfig(config *Config) error {
-	// Validate that we have some form of authentication
-	if config.APIKey == "" && (config.Username == "" || config.Password == "") {
-		return fmt.Errorf(
-			"authentication required: provide either API_KEY or both USERNAME and PASSWORD",
-		)
+	// Validate SSH configuration
+	if config.SwitchHost == "" {
+		return fmt.Errorf("switch_host is required")
 	}
 
-	// Validate API endpoint (check for empty string explicitly set, not just default)
-	if config.APIEndpoint == "" {
-		return fmt.Errorf("API_ENDPOINT is required")
+	if config.SSHKeyPath == "" {
+		return fmt.Errorf("ssh_key_path is required")
 	}
 
-	// Validate port range
+	// Validate SSH port range
+	if config.SSHPort < 1 || config.SSHPort > 65535 {
+		return fmt.Errorf("ssh_port must be between 1 and 65535, got %d", config.SSHPort)
+	}
+
+	// Validate server port range
 	if config.Port < 1 || config.Port > 65535 {
 		return fmt.Errorf("port must be between 1 and 65535, got %d", config.Port)
 	}

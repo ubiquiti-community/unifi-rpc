@@ -5,28 +5,20 @@
 port: 5000
 address: "0.0.0.0"
 
-# UniFi Controller authentication (choose one method)
-# Option 1: API Key (recommended)
-api_key: "your_unifi_api_key_here"
+# UniFi Switch SSH connection
+switch_host: "10.0.24.136" # IP address or hostname of your UniFi switch
+ssh_port: 22 # SSH port (default: 22)
+ssh_username: "root" # SSH username (default: root)
+ssh_key_path: "~/.ssh/id_rsa" # Path to SSH private key file
 
-# Option 2: Username/Password
-# username: "admin"
-# password: "your_password"
-
-# UniFi Controller connection
-api_endpoint: "https://unifi.example.com:8443"
-insecure: true
-
-# Global device MAC address for the network switch
-# This allows omitting the X-MAC-Address header in requests
-# The X-MAC-Address header will override this value when provided
-device_mac_address: "aa:bb:cc:dd:ee:ff"
 # Example usage:
-# 1. With global MAC configured:
-#    curl -H "X-Port: 1" http://localhost:5000/poweron
+# Power control requires only the X-Port header:
+#   curl -X POST -H "X-Port: 3" -H "Content-Type: application/json" \
+#     -d '{"jsonrpc":"2.0","method":"power.get","id":1}' \
+#     http://localhost:5000/
 #
-# 2. Override global MAC with header:
-#    curl -H "X-MAC-Address: 11:22:33:44:55:66" -H "X-Port: 1" http://localhost:5000/poweron
-#
-# 3. Without global MAC (original behavior):
-#    curl -H "X-MAC-Address: aa:bb:cc:dd:ee:ff" -H "X-Port: 1" http://localhost:5000/poweron
+# Available RPC methods:
+#   - power.get: Get current power state
+#   - power.set: Set power state (params: {"state": "on|off|soft|cycle|reset"})
+#   - boot.device: Set boot device (acknowledged but not implemented)
+#   - ping: Health check (returns "pong")

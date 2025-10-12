@@ -5,125 +5,72 @@ import (
 	"testing"
 )
 
-func TestMachine_GetPort(t *testing.T) {
+func TestGetPort(t *testing.T) {
 	tests := []struct {
-		name     string
-		machine  Machine
-		expected int
+		name        string
+		headers     map[string]string
+		expectError bool
+		errorMsg    string
+		expected    int
 	}{
 		{
 			name: "valid port number",
-			machine: Machine{
-				MacAddress: "aa:bb:cc:dd:ee:ff",
-				PortIdx:    "5",
+			headers: map[string]string{
+				"X-Port": "5",
 			},
 			expected: 5,
 		},
 		{
-			name: "zero port",
-			machine: Machine{
-				MacAddress: "aa:bb:cc:dd:ee:ff",
-				PortIdx:    "0",
+			name: "valid large port",
+			headers: map[string]string{
+				"X-Port": "48",
 			},
-			expected: 0,
+			expected: 48,
+		},
+		{
+			name:        "missing X-Port header",
+			headers:     map[string]string{},
+			expectError: true,
+			errorMsg:    "X-Port header is required",
+		},
+		{
+			name: "empty X-Port header",
+			headers: map[string]string{
+				"X-Port": "",
+			},
+			expectError: true,
+			errorMsg:    "X-Port header is required",
 		},
 		{
 			name: "invalid port - not a number",
-			machine: Machine{
-				MacAddress: "aa:bb:cc:dd:ee:ff",
-				PortIdx:    "abc",
-			},
-			expected: 0,
-		},
-		{
-			name: "empty port",
-			machine: Machine{
-				MacAddress: "aa:bb:cc:dd:ee:ff",
-				PortIdx:    "",
-			},
-			expected: 0,
-		},
-		{
-			name: "negative port",
-			machine: Machine{
-				MacAddress: "aa:bb:cc:dd:ee:ff",
-				PortIdx:    "-1",
-			},
-			expected: -1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			port := tt.machine.GetPort()
-			if port != &tt.expected {
-				t.Errorf("Expected port %d, got %d", tt.expected, port)
-			}
-		})
-	}
-}
-
-func TestGetMachineWithGlobal(t *testing.T) {
-	tests := []struct {
-		name             string
-		headers          map[string]string
-		globalMacAddress string
-		expected         Machine
-	}{
-		{
-			name: "header MAC overrides global",
 			headers: map[string]string{
-				"X-MAC-Address": "aa:bb:cc:dd:ee:ff",
-				"X-Port":        "1",
+				"X-Port": "abc",
 			},
-			globalMacAddress: "11:22:33:44:55:66",
-			expected: Machine{
-				MacAddress: "aa:bb:cc:dd:ee:ff",
-				PortIdx:    "1",
-			},
+			expectError: true,
+			errorMsg:    "invalid port number",
 		},
 		{
-			name: "uses global MAC when header missing",
+			name: "invalid port - zero",
 			headers: map[string]string{
-				"X-Port": "2",
+				"X-Port": "0",
 			},
-			globalMacAddress: "11:22:33:44:55:66",
-			expected: Machine{
-				MacAddress: "11:22:33:44:55:66",
-				PortIdx:    "2",
-			},
+			expectError: true,
+			errorMsg:    "port must be positive",
 		},
 		{
-			name: "empty global MAC, no header",
+			name: "invalid port - negative",
 			headers: map[string]string{
-				"X-Port": "3",
+				"X-Port": "-1",
 			},
-			globalMacAddress: "",
-			expected: Machine{
-				MacAddress: "",
-				PortIdx:    "3",
-			},
+			expectError: true,
+			errorMsg:    "port must be positive",
 		},
 		{
-			name: "header MAC empty but present, ignores global",
+			name: "valid port with whitespace",
 			headers: map[string]string{
-				"X-MAC-Address": "",
-				"X-Port":        "4",
+				"X-Port": " 10 ",
 			},
-			globalMacAddress: "11:22:33:44:55:66",
-			expected: Machine{
-				MacAddress: "",
-				PortIdx:    "4",
-			},
-		},
-		{
-			name:             "no headers, uses global",
-			headers:          map[string]string{},
-			globalMacAddress: "ff:ee:dd:cc:bb:aa",
-			expected: Machine{
-				MacAddress: "ff:ee:dd:cc:bb:aa",
-				PortIdx:    "",
-			},
+			expected: 10,
 		},
 	}
 
@@ -139,18 +86,37 @@ func TestGetMachineWithGlobal(t *testing.T) {
 				req.Header.Set(key, value)
 			}
 
-			machine := GetMachineWithGlobal(req, tt.globalMacAddress)
+			port, err := GetPort(req)
 
-			if machine.MacAddress != tt.expected.MacAddress {
-				t.Errorf(
-					"Expected MacAddress %q, got %q",
-					tt.expected.MacAddress,
-					machine.MacAddress,
-				)
+			if tt.expectError {
+				if err == nil {
+					t.Error("Expected an error, got nil")
+					return
+				}
+				if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
+					t.Errorf("Expected error message to contain %q, got: %v", tt.errorMsg, err)
+				}
+				return
 			}
-			if machine.PortIdx != tt.expected.PortIdx {
-				t.Errorf("Expected PortIdx %q, got %q", tt.expected.PortIdx, machine.PortIdx)
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if port.Number != tt.expected {
+				t.Errorf("Expected port number %d, got %d", tt.expected, port.Number)
 			}
 		})
 	}
+}
+
+// Helper function.
+func contains(str, substr string) bool {
+	for i := 0; i <= len(str)-len(substr); i++ {
+		if str[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }

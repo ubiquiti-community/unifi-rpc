@@ -40,3 +40,5 @@ dist/
 .envrc
 /unifi-rpc
 .DS_Store
+/unifi
+/bmc

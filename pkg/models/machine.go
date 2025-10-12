@@ -1,36 +1,36 @@
 package models
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
-type Machine struct {
-	MacAddress string `json:"mac"`
-	PortIdx    string `json:"port"`
+// Port represents a switch port number.
+type Port struct {
+	Number int `json:"port"`
 }
 
-// GetMachineWithGlobal extracts machine information from HTTP headers with global MAC address fallback
-// X-MAC-Address header takes priority over globalMacAddress
-// If X-MAC-Address is not provided, globalMacAddress is used
-// X-Port header is required
-func GetMachineWithGlobal(r *http.Request, globalMacAddress string) Machine {
-	macAddress := r.Header.Get("X-MAC-Address")
-	if macAddress == "" {
-		macAddress = globalMacAddress
+// GetPort extracts port number from HTTP headers
+// X-Port header is required.
+func GetPort(r *http.Request) (*Port, error) {
+	portStr := r.Header.Get("X-Port")
+	if portStr == "" {
+		return nil, fmt.Errorf("X-Port header is required")
 	}
 
-	return Machine{
-		MacAddress: macAddress,
-		PortIdx:    r.Header.Get("X-Port"),
-	}
-}
+	// Trim whitespace
+	portStr = strings.TrimSpace(portStr)
 
-func (m *Machine) GetPort() *int {
-	p := 0
-	if port, err := strconv.Atoi(m.PortIdx); err == nil {
-		p = port
-		return &p
+	portNum, err := strconv.Atoi(portStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid port number %q: %w", portStr, err)
 	}
-	return nil
+
+	if portNum < 1 {
+		return nil, fmt.Errorf("invalid port number: port must be positive, got %d", portNum)
+	}
+
+	return &Port{Number: portNum}, nil
 }
