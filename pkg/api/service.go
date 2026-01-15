@@ -21,6 +21,7 @@ type PowerClient interface {
 	SetPortPower(ctx context.Context, portID int, state client.PowerState) error
 	RestartPortPower(ctx context.Context, portID int) error
 	GetPoEStatus(ctx context.Context, portID int) (*client.PoEStatus, error)
+	GetPortByMacAddress(ctx context.Context, macAddress string) (int, error)
 }
 
 type RpcService interface {
@@ -87,8 +88,8 @@ func (s *rpcService) restartPort(ctx context.Context, portNum int) error {
 }
 
 func (s *rpcService) RpcHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract port from headers
-	port, err := models.GetPort(r)
+	// Extract port from headers (with optional MAC address lookup)
+	port, err := models.GetPort(r, s.powerClient)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

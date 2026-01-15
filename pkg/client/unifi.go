@@ -52,6 +52,24 @@ type PoEStatus struct {
 	Ports           []PoEPortStatus // Status for each port
 }
 
+// MacEntry represents a single MAC address table entry.
+type MacEntry struct {
+	Port         int    // Port number
+	VLAN         int    // VLAN ID
+	MacAddress   string // MAC address
+	IPAddress    string // IP address (may be empty)
+	Hostname     string // Hostname (may be empty)
+	Uptime       int    // Uptime in seconds
+	Age          int    // Age in seconds
+	WirelessType string // Wireless type (e.g., "join/286193", "leave/286014", empty for wired)
+}
+
+// MacList represents the complete MAC address table.
+type MacList struct {
+	Entries    []MacEntry // List of MAC entries
+	TotalCount int        // Total number of entries
+}
+
 // Config holds the configuration for connecting to a Unifi switch via SSH.
 type Config struct {
 	// Host is the IP address or hostname of the Unifi switch
@@ -236,6 +254,37 @@ func (c *Client) GetPoEStatus(ctx context.Context, portID int) (*PoEStatus, erro
 	return parsePoEStatus(output)
 }
 
+// GetMacList gets the MAC address table from the switch.
+func (c *Client) GetMacList(ctx context.Context) (*MacList, error) {
+	command := "swctrl mac show"
+	output, err := c.executeCommand(ctx, command)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get MAC list: %w", err)
+	}
+
+	return parseMacList(output)
+}
+
+// GetPortByMacAddress returns the port number for a given MAC address.
+// The MAC address comparison is case-insensitive.
+func (c *Client) GetPortByMacAddress(ctx context.Context, macAddress string) (int, error) {
+	macList, err := c.GetMacList(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get MAC list: %w", err)
+	}
+
+	// Normalize the search MAC address to lowercase for comparison
+	searchMAC := strings.ToLower(macAddress)
+
+	for _, entry := range macList.Entries {
+		if strings.ToLower(entry.MacAddress) == searchMAC {
+			return entry.Port, nil
+		}
+	}
+
+	return 0, fmt.Errorf("MAC address %s not found in switch table", macAddress)
+}
+
 // parsePoEStatus parses the output from "swctrl poe show id X" command.
 func parsePoEStatus(output string) (*PoEStatus, error) {
 	lines := strings.Split(output, "\n")
@@ -369,4 +418,137 @@ func parsePoEStatus(output string) (*PoEStatus, error) {
 	}
 
 	return status, nil
+}
+
+// parseMacList parses the output from "swctrl mac show" command.
+func parseMacList(output string) (*MacList, error) {
+	lines := strings.Split(output, "\n")
+	if len(lines) < 2 {
+		return nil, fmt.Errorf("insufficient output lines")
+	}
+
+	macList := &MacList{
+		Entries: make([]MacEntry, 0),
+	}
+
+	// Find the data section (after the header line with dashes)
+	dataStartIdx := -1
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Look for the separator line with dashes
+		if strings.HasPrefix(trimmed, "----") {
+			dataStartIdx = i + 1
+			break
+		}
+	}
+
+	if dataStartIdx == -1 || dataStartIdx >= len(lines) {
+		return nil, fmt.Errorf("could not find data section in output")
+	}
+
+	// Parse each data line
+	for i := dataStartIdx; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
+		if line == "" {
+			continue
+		}
+
+		// Check if this is the total count line
+		if strings.HasPrefix(line, "Total number of entries:") {
+			parts := strings.Split(line, ":")
+			if len(parts) == 2 {
+				countStr := strings.TrimSpace(parts[1])
+				if count, err := strconv.Atoi(countStr); err == nil {
+					macList.TotalCount = count
+				}
+			}
+			break
+		}
+
+		// Parse the MAC entry line
+		// Use strings.Fields to split by whitespace
+		fields := strings.Fields(line)
+		if len(fields) < 7 {
+			continue // Skip malformed lines
+		}
+
+		entry := MacEntry{}
+
+		// Port number
+		if port, err := strconv.Atoi(fields[0]); err == nil {
+			entry.Port = port
+		} else {
+			continue // Skip if port is not a valid number
+		}
+
+		// VLAN
+		if vlan, err := strconv.Atoi(fields[1]); err == nil {
+			entry.VLAN = vlan
+		} else {
+			continue // Skip if VLAN is not a valid number
+		}
+
+		// MAC address
+		entry.MacAddress = fields[2]
+
+		// IP address (may be empty)
+		if len(fields) > 3 {
+			entry.IPAddress = fields[3]
+		}
+
+		// Hostname (may be empty or multiple fields)
+		// Uptime and Age are always present as numbers
+		// Find where the numeric fields start from the end
+		uptimeIdx := -1
+		ageIdx := -1
+		wirelessIdx := -1
+
+		// Work backwards to find numeric fields
+		for j := len(fields) - 1; j >= 4; j-- {
+			if _, err := strconv.Atoi(fields[j]); err == nil {
+				if ageIdx == -1 {
+					ageIdx = j
+				} else if uptimeIdx == -1 {
+					uptimeIdx = j
+					break
+				}
+			} else if ageIdx != -1 {
+				// This is the wireless type field
+				wirelessIdx = j
+				break
+			}
+		}
+
+		// Extract uptime
+		if uptimeIdx != -1 {
+			if uptime, err := strconv.Atoi(fields[uptimeIdx]); err == nil {
+				entry.Uptime = uptime
+			}
+		}
+
+		// Extract age
+		if ageIdx != -1 {
+			if age, err := strconv.Atoi(fields[ageIdx]); err == nil {
+				entry.Age = age
+			}
+		}
+
+		// Extract wireless type if present
+		if wirelessIdx != -1 && wirelessIdx > uptimeIdx {
+			entry.WirelessType = fields[wirelessIdx]
+		}
+
+		// Extract hostname (everything between IP and uptime)
+		if uptimeIdx > 4 {
+			hostnameStart := 4
+			hostnameEnd := uptimeIdx
+			if len(fields) > hostnameStart && hostnameEnd > hostnameStart {
+				entry.Hostname = strings.Join(fields[hostnameStart:hostnameEnd], " ")
+			}
+		}
+
+		macList.Entries = append(macList.Entries, entry)
+	}
+
+	return macList, nil
 }

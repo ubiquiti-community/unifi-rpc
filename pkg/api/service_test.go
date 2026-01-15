@@ -17,6 +17,7 @@ import (
 // Mock power client for testing.
 type mockPowerClient struct {
 	powerStates map[int]client.PowerState
+	macToPort   map[string]int // MAC address to port mapping
 }
 
 func (m *mockPowerClient) GetPortPowerState(
@@ -50,12 +51,26 @@ func (m *mockPowerClient) GetPoEStatus(ctx context.Context, portID int) (*client
 	return nil, nil // Not needed for these tests
 }
 
+func (m *mockPowerClient) GetPortByMacAddress(ctx context.Context, macAddress string) (int, error) {
+	if m.macToPort == nil {
+		return 0, context.DeadlineExceeded // Simulate "not found"
+	}
+	port, exists := m.macToPort[macAddress]
+	if !exists {
+		return 0, context.DeadlineExceeded
+	}
+	return port, nil
+}
+
 func TestRpcHandler_PowerGet(t *testing.T) {
 	mockClient := &mockPowerClient{
 		powerStates: map[int]client.PowerState{
 			1: client.PowerOn,
 			2: client.PowerOff,
 			3: client.PowerOn,
+		},
+		macToPort: map[string]int{
+			"aa:bb:cc:dd:ee:ff": 1,
 		},
 	}
 	svc := &rpcService{powerClient: mockClient}
@@ -99,6 +114,18 @@ func TestRpcHandler_PowerGet(t *testing.T) {
 				ID:     3,
 			},
 			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "get power state with MAC address lookup",
+			headers: map[string]string{
+				"X-Mac": "aa:bb:cc:dd:ee:ff",
+			},
+			payload: RequestPayload{
+				Method: PowerGetMethod,
+				ID:     4,
+			},
+			expectedStatus: http.StatusOK,
+			expectedResult: "on",
 		},
 	}
 

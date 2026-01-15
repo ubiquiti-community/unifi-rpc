@@ -1,9 +1,30 @@
 package models
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"testing"
 )
+
+// mockMacLookupClient for testing MAC address lookup.
+type mockMacLookupClient struct {
+	macToPort map[string]int
+}
+
+func (m *mockMacLookupClient) GetPortByMacAddress(
+	ctx context.Context,
+	macAddress string,
+) (int, error) {
+	if m.macToPort == nil {
+		return 0, fmt.Errorf("MAC address %s not found", macAddress)
+	}
+	port, exists := m.macToPort[macAddress]
+	if !exists {
+		return 0, fmt.Errorf("MAC address %s not found", macAddress)
+	}
+	return port, nil
+}
 
 func TestGetPort(t *testing.T) {
 	tests := []struct {
@@ -31,7 +52,7 @@ func TestGetPort(t *testing.T) {
 			name:        "missing X-Port header",
 			headers:     map[string]string{},
 			expectError: true,
-			errorMsg:    "X-Port header is required",
+			errorMsg:    "either X-Port or X-Mac header is required",
 		},
 		{
 			name: "empty X-Port header",
@@ -39,7 +60,7 @@ func TestGetPort(t *testing.T) {
 				"X-Port": "",
 			},
 			expectError: true,
-			errorMsg:    "X-Port header is required",
+			errorMsg:    "either X-Port or X-Mac header is required",
 		},
 		{
 			name: "invalid port - not a number",
@@ -72,6 +93,36 @@ func TestGetPort(t *testing.T) {
 			},
 			expected: 10,
 		},
+		{
+			name: "valid MAC address lookup",
+			headers: map[string]string{
+				"X-Mac": "aa:bb:cc:dd:ee:ff",
+			},
+			expected: 5,
+		},
+		{
+			name: "invalid MAC address - not found",
+			headers: map[string]string{
+				"X-Mac": "11:22:33:44:55:66",
+			},
+			expectError: true,
+			errorMsg:    "failed to lookup port by MAC address",
+		},
+		{
+			name: "X-Port takes precedence over X-Mac",
+			headers: map[string]string{
+				"X-Port": "10",
+				"X-Mac":  "aa:bb:cc:dd:ee:ff",
+			},
+			expected: 10,
+		},
+	}
+
+	// Create mock client for MAC address lookup
+	mockClient := &mockMacLookupClient{
+		macToPort: map[string]int{
+			"aa:bb:cc:dd:ee:ff": 5,
+		},
 	}
 
 	for _, tt := range tests {
@@ -86,7 +137,7 @@ func TestGetPort(t *testing.T) {
 				req.Header.Set(key, value)
 			}
 
-			port, err := GetPort(req)
+			port, err := GetPort(req, mockClient)
 
 			if tt.expectError {
 				if err == nil {
