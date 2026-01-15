@@ -42,3 +42,5 @@ dist/
 .DS_Store
 /unifi
 /bmc
+
+.vscode/*.json
