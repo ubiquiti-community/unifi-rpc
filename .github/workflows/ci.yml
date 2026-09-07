@@ -57,6 +57,9 @@ jobs:
 
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          # Pinned rather than latest: a linter that gains a rule overnight
-          # turns every open pull request red for reasons unrelated to them.
-          version: v2.5.0
+          # Pinned rather than latest, so a linter that gains a rule overnight
+          # cannot turn every open pull request red for reasons unrelated to
+          # them. The pin still has to be at least as new as the Go version
+          # the module targets: golangci-lint refuses to run when the Go it
+          # was built with is older than the `go` directive in go.mod.
+          version: v2.13.2
